@@ -1,29 +1,42 @@
-var swig = require('../index'),
+var reinhardt = require('reinhardt'),
   tplF,
   tplS,
   array,
   output,
   d,
-  i,
-  tplString;
-
+  i;
 console.log();
 console.log('Starting speed tests...');
 
-swig.init({
-  root: module.resolve('./node/templates/')
+
+var tpls = {
+  'objLoop': '{% for foo in bar %}{{ forloop.counter }} - {{ foo }}{% endfor %}',
+}
+// register fake template loader for unit tests
+var FakeTemplateLoader = function() {
+  this.loadTemplateSource = function(templateName) {
+      if (tpls[templateName]) {
+            return tpls[templateName];
+      }
+      return null;
+  }
+  return this;
+}
+
+var reinEnv = new reinhardt.Environment({
+  loader: new FakeTemplateLoader(),
 });
 
 
-tplString = '{% for foo in bar %}{{ loop.index }} - {{ foo }}{% endfor %}';
-tplF = swig.compile(tplString);
+tplF = reinEnv.getTemplate('objLoop');
 /*
+@@ OBJECT LOOP NOT SUPPORTED'@@
 console.time('object loop');
 i = 10000;
 d = new Date();
 while (i) {
   i -= 1;
-  tplF({bar: { foo: 'bar', bar: 'baz', baz: 'bop' }});
+  tplF.render({bar: { foo: 'bar', bar: 'baz', baz: 'bop' }});
 }
 console.timeEnd('object loop');
 console.log("  ~ " + Math.round(1000000 / (new Date() - d)) + " renders per sec.");
@@ -34,12 +47,13 @@ i = 10000;
 d = new Date();
 while (i) {
   i -= 1;
-  tplF({ bar: [ 'bar', 'baz', 'bop' ]});
+  tplF.render({ bar: [ 'bar', 'baz', 'bop' ]});
 }
 console.timeEnd('array loop');
 console.log("  ~ " + Math.round(1000000 / (new Date() - d)) + " renders per sec.");
 
 /*
+@@ there is no compile step @@
 tplString = "{% for v in array %}" +
   "{% if 1 %}" +
   "{% for k in v %}" +
@@ -61,10 +75,13 @@ while (i) {
 console.timeEnd('Compile one template 1000 times');
 console.log("  ~ " + Math.round(1000000 / (new Date() - d)) + " renders per sec.");
 */
+
+reinEnv = new reinhardt.Environment({
+  loader: module.resolve('./reinhardt/templates/'),
+});
+
 array = [[1, 2, 3, 4, 5, 6, 7, 8, 9, 10], [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], { af: "s", baz: "d", d: "f" }, "zeus"];
-tplF = swig.compileFile("include_base.html");
-swig.compileFile("included_2.html");
-swig.compileFile("included.html");
+tplF = reinEnv.getTemplate('include_base.html')
 
 i = 1000;
 console.time('Render 1000 Includes Templates');
@@ -73,14 +90,13 @@ while (i) {
   i -= 1;
   tplF.render({ array: array, foo: "baz", "included": "included.html" });
 }
-// @@ compare output
-print(tplF.render({ array: array, foo: "baz", "included": "included.html" }));
+// @@ to compare output
+print(tplF.render({ array: array, foo: "baz", "included": "included.html" }))
+
 console.timeEnd('Render 1000 Includes Templates');
 console.log("  ~ " + Math.round(1000000 / (new Date() - d)) + " renders per sec.");
 
-swig.compileFile("extends_base.html");
-swig.compileFile("extends_1.html");
-tplF = swig.compileFile("extends_2.html");
+tplF = reinEnv.getTemplate("extends_2.html");
 
 i = 1000;
 console.time('Render 1000 Extends Templates');
